@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Follow the Pennies</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .register-container {
+      max-width: 520px;
+      margin: 2rem auto 4rem;
+      padding: 0 1.5rem;
+    }
+    .register-card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .register-card h1 {
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+      font-size: 1.75rem;
+    }
+    .privacy-banner {
+      background: #FDF6EF;
+      border-left: 4px solid var(--copper);
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0 1.5rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.95rem;
+      color: var(--navy);
+    }
+    .privacy-banner strong {
+      color: var(--copper);
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: var(--navy);
+      font-size: 0.9rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border: 1px solid var(--gray);
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--copper);
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .error {
+      color: #c0392b;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    .success {
+      color: #27ae60;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="landing-header">
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      Follow the Pennies
+    </div>
+    <nav class="nav-links">
+      <a href="/">Home</a>
+      <a href="/login.html">Login</a>
+    </nav>
+  </header>
+
+  <div class="register-container">
+    <div class="register-card">
+      <h1>Create your account</h1>
+      <p style="color: var(--muted); margin-bottom: 0.5rem;">Track every tax you pay and see exactly where it goes.</p>
+
+      <div class="privacy-banner">
+        <strong>Your privacy is protected.</strong><br>
+        We will <strong>never</strong> sell, rent, or give your personal information to anyone. Your data stays private and is used only to show you where your tax dollars went.
+      </div>
+
+      <form id="registerForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="first_name">First name</label>
+            <input type="text" id="first_name" name="first_name" required>
+          </div>
+          <div class="form-group">
+            <label for="last_name">Last name</label>
+            <input type="text" id="last_name" name="last_name" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required minlength="8">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" placeholder="e.g. Pensacola">
+          </div>
+          <div class="form-group">
+            <label for="state">State</label>
+            <input type="text" id="state" name="state" placeholder="e.g. FL" maxlength="2">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="county">County</label>
+            <input type="text" id="county" name="county" placeholder="e.g. Escambia">
+          </div>
+          <div class="form-group">
+            <label for="zip">ZIP code</label>
+            <input type="text" id="zip" name="zip" placeholder="e.g. 32501">
+          </div>
+        </div>
+
+        <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;">Create Account</button>
+        <div id="message"></div>
+      </form>
+
+      <p style="text-align: center; margin-top: 1.5rem; color: var(--muted); font-size: 0.9rem;">
+        Already have an account? <a href="/login.html">Log in</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const messageEl = document.getElementById('message');
+      messageEl.textContent = '';
+      messageEl.className = '';
+
+      const data = {
+        first_name: document.getElementById('first_name').value,
+        last_name: document.getElementById('last_name').value,
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        city: document.getElementById('city').value,
+        state: document.getElementById('state').value,
+        county: document.getElementById('county').value,
+        zip: document.getElementById('zip').value
+      };
+
+      try {
+        const API_BASE = 'https://chaseyourtaxes.onrender.com';
+        const res = await fetch(`${API_BASE}/api/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+          messageEl.textContent = `Welcome, ${result.firstName}! Redirecting…`;
+          messageEl.className = 'success';
+          setTimeout(() => window.location.href = '/dashboard.html', 1200);
+        } else {
+          messageEl.textContent = result.error || 'Registration failed';
+          messageEl.className = 'error';
+        }
+      } catch (err) {
+        messageEl.textContent = 'Network error. Please try again.';
+        messageEl.className = 'error';
+      }
+    });
+  </script>
+
+<footer style="margin-top: 3rem; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; color: #333;">
+  <div style="width:100%; background:#facc15; color:#000; font-weight:bold; text-align:center; letter-spacing:3px; padding:0.6rem 0; font-size:1.4rem; border-top:5px solid #000; border-bottom:5px solid #000; overflow:hidden; white-space:nowrap;">
+    UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION
+  </div>
+  <div style="padding: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+    <img src="tax-tracker.png" alt="Tax Tracker" style="height: 320px; width: auto;">
+    <div style="font-size: 1.8rem; line-height: 1.4;">
+      <strong>Site under construction</strong><br>
+      Tracking begins January 1, 2027
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

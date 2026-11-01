@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Follow the Pennies</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .admin-layout { display: flex; gap: 2rem; }
+    .user-list { flex: 1; }
+    .user-detail { flex: 2; }
+    .user-row { padding: 0.75rem; border-bottom: 1px solid #eee; cursor: pointer; }
+    .user-row:hover, .user-row.active { background: #f8f9fa; }
+    .inactive { opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">P</div>
+        Follow the Pennies
+      </div>
+      <nav>
+        <a href="index.html">🏠 Home</a>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="admin.html" class="active">⚙️ Admin</a>
+        <a href="#" id="logoutLink" style="margin-top: 1rem; color: #c17a3a;">🚪 Log out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <h1>Admin Panel</h1>
+      <div class="admin-layout">
+        <div class="user-list" id="userList">Loading users…</div>
+        <div class="user-detail" id="userDetail">Select a user to view details and transactions.</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = 'https://chaseyourtaxes.onrender.com';
+    const token = localStorage.getItem('ftp_token');
+    if (!token) window.location.href = 'login.html';
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    let currentUserId = null;
+    let isSuper = false;
+
+    async function loadUsers() {
+      const res = await fetch(`${API_BASE}/api/admin/users`, { headers });
+      if (!res.ok) { document.getElementById('userList').innerHTML = 'Access denied or error.'; return; }
+      const users = await res.json();
+      const list = document.getElementById('userList');
+      list.innerHTML = users.map(u => `
+        <div class="user-row ${u.active ? '' : 'inactive'}" data-id="${u.id}">
+          <strong>${u.first_name} ${u.last_name}</strong> (@${u.username})<br>
+          <small>${u.email} • ${u.city || ''} ${u.state || ''} • ${u.role} ${u.active ? '' : '(inactive)'}</small>
+        </div>
+      `).join('');
+      list.querySelectorAll('.user-row').forEach(el => {
+        el.addEventListener('click', () => selectUser(el.dataset.id));
+      });
+    }
+
+    async function selectUser(id) {
+      currentUserId = id;
+      document.querySelectorAll('.user-row').forEach(r => r.classList.remove('active'));
+      document.querySelector(`[data-id="${id}"]`)?.classList.add('active');
+
+      const detail = document.getElementById('userDetail');
+      detail.innerHTML = 'Loading…';
+
+      const txRes = await fetch(`${API_BASE}/api/admin/users/${id}/transactions`, { headers });
+      const txs = txRes.ok ? await txRes.json() : [];
+
+      // Find user info from the list
+      const userEl = document.querySelector(`[data-id="${id}"]`);
+      const userText = userEl ? userEl.innerHTML : '';
+
+      detail.innerHTML = `
+        <div>${userText}</div>
+        <div style="margin: 1rem 0;">
+          <button class="btn" onclick="deactivate(${id})">Deactivate</button>
+          <button class="btn" onclick="reactivate(${id})" style="background:#28a745;">Reactivate</button>
+          ${isSuper ? `<select id="roleSelect"><option value="user">user</option><option value="admin">admin</option><option value="superadmin">superadmin</option></select>
+          <button class="btn" onclick="setRole(${id})">Set Role</button>` : ''}
+        </div>
+        <h3>Transactions</h3>
+        ${txs.length ? `<table><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Amount</th></tr></thead><tbody>
+          ${txs.map(t => `<tr><td>${t.date}</td><td>${t.description || ''}</td><td>${t.tax_type || ''}</td><td>$${Number(t.amount||0).toFixed(2)}</td></tr>`).join('')}
+        </tbody></table>` : '<p>No transactions.</p>'}
+      `;
+    }
+
+    async function deactivate(id) {
+      if (!confirm('Deactivate this user?')) return;
+      await fetch(`${API_BASE}/api/admin/users/${id}/deactivate`, { method: 'POST', headers });
+      loadUsers();
+    }
+    async function reactivate(id) {
+      await fetch(`${API_BASE}/api/admin/users/${id}/reactivate`, { method: 'POST', headers });
+      loadUsers();
+    }
+    async function setRole(id) {
+      const role = document.getElementById('roleSelect').value;
+      await fetch(`${API_BASE}/api/admin/users/${id}/role`, { method: 'POST', headers, body: JSON.stringify({ role }) });
+      loadUsers();
+    }
+
+    document.getElementById('logoutLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('ftp_token');
+      window.location.href = 'index.html';
+    });
+
+    // Check if superadmin (simple check via /api/me)
+    fetch(`${API_BASE}/api/me`, { headers }).then(r => r.json()).then(me => {
+      isSuper = me.role === 'superadmin';
+      loadUsers();
+    });
+  </script>
+
+<footer style="margin-top: 3rem; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; color: #333;">
+  <div style="width:100%; background:#facc15; color:#000; font-weight:bold; text-align:center; letter-spacing:3px; padding:0.6rem 0; font-size:1.4rem; border-top:5px solid #000; border-bottom:5px solid #000; overflow:hidden; white-space:nowrap;">
+    UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION
+  </div>
+  <div style="padding: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+    <img src="tax-tracker.png" alt="Tax Tracker" style="height: 320px; width: auto;">
+    <div style="font-size: 1.8rem; line-height: 1.4;">
+      <strong>Site under construction</strong><br>
+      Tracking begins January 1, 2027
+    </div>
+  </div>
+</footer>
+</body>
+</html>

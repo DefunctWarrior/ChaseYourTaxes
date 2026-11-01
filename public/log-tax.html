@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log a Tax - Follow the Pennies</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .form-container { max-width: 800px; margin: 0 auto; }
+    .tax-item { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; position: relative; }
+    .remove-item { position: absolute; top: 0.5rem; right: 0.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; cursor: pointer; }
+    .suggestions { position: absolute; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 150px; overflow-y: auto; z-index: 10; width: 100%; }
+    .suggestion { padding: 0.5rem; cursor: pointer; }
+    .suggestion:hover { background: #f0f0f0; }
+    .jurisdiction-wrap { position: relative; }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">P</div>
+        Follow the Pennies
+      </div>
+      <nav>
+        <a href="index.html">🏠 Home</a>
+        <a href="dashboard.html">📊 Dashboard</a>
+        <a href="allocation.html">📈 Where It Went</a>
+        <a href="log-tax.html" class="active">📋 Log a Tax</a>
+        <a href="#" id="logoutLink" style="margin-top: 1rem; color: #c17a3a;">🚪 Log out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div class="form-container">
+        <h1>Log a Tax</h1>
+        <p style="color: var(--muted); margin-bottom: 1.5rem;">Record a transaction and the individual taxes paid.</p>
+
+        <form id="taxForm">
+          <div class="form-group">
+            <label for="date">Date</label>
+            <input type="date" id="date" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Description</label>
+            <input type="text" id="description" placeholder="e.g. Paycheck, Grocery store, Online purchase">
+          </div>
+          <div class="form-group">
+            <label for="source_type">Source type</label>
+            <select id="source_type">
+              <option value="paycheck">Paycheck</option>
+              <option value="purchase">Purchase</option>
+              <option value="property">Property tax</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <h3 style="margin: 1.5rem 0 1rem;">Tax line items</h3>
+          <div id="taxItems"></div>
+          <button type="button" id="addItem" class="btn" style="background: var(--navy); margin-bottom: 1.5rem;">+ Add tax item</button>
+
+          <div id="message" class="message"></div>
+          <button type="submit" class="btn" style="width: 100%;">Save transaction</button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = 'https://chaseyourtaxes.onrender.com';
+    const token = localStorage.getItem('ftp_token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    let taxTypes = [];
+    let itemCount = 0;
+
+    async function loadTaxTypes() {
+      try {
+        const res = await fetch(`${API_BASE}/api/tax-types`);
+        taxTypes = await res.json();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function addTaxItem() {
+      itemCount++;
+      const div = document.createElement('div');
+      div.className = 'tax-item';
+      div.innerHTML = `
+        <button type="button" class="remove-item" onclick="this.parentElement.remove()">×</button>
+        <div class="form-group">
+          <label>Tax type</label>
+          <select class="tax-type" required>
+            <option value="">Select…</option>
+            ${taxTypes.map(t => `<option value="${t.id}">${t.name} (${t.level})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Amount</label>
+          <input type="number" class="amount" step="0.01" min="0" required placeholder="0.00">
+        </div>
+        <div class="form-group jurisdiction-wrap">
+          <label>Jurisdiction (city, county, state)</label>
+          <input type="text" class="jurisdiction" placeholder="Start typing to search…">
+          <input type="hidden" class="jurisdiction-id">
+          <div class="suggestions" style="display:none;"></div>
+        </div>
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <input type="text" class="item-notes" placeholder="e.g. Federal withholding">
+        </div>
+      `;
+      document.getElementById('taxItems').appendChild(div);
+
+      const input = div.querySelector('.jurisdiction');
+      const suggestions = div.querySelector('.suggestions');
+      const hiddenId = div.querySelector('.jurisdiction-id');
+
+      input.addEventListener('input', async () => {
+        const q = input.value.trim();
+        if (q.length < 2) { suggestions.style.display = 'none'; return; }
+        try {
+          const res = await fetch(`${API_BASE}/api/jurisdictions/search?q=${encodeURIComponent(q)}`);
+          const list = await res.json();
+          suggestions.innerHTML = list.map(j => `<div class="suggestion" data-id="${j.id}">${j.display_name}</div>`).join('');
+          suggestions.style.display = list.length ? 'block' : 'none';
+          suggestions.querySelectorAll('.suggestion').forEach(el => {
+            el.addEventListener('click', () => {
+              input.value = el.textContent;
+              hiddenId.value = el.dataset.id;
+              suggestions.style.display = 'none';
+            });
+          });
+        } catch (e) {}
+      });
+    }
+
+    document.getElementById('addItem').addEventListener('click', addTaxItem);
+
+    document.getElementById('taxForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const messageEl = document.getElementById('message');
+      messageEl.textContent = '';
+      messageEl.className = 'message';
+
+      const tax_items = [];
+      document.querySelectorAll('.tax-item').forEach(item => {
+        const tax_type_id = item.querySelector('.tax-type').value;
+        const amount = parseFloat(item.querySelector('.amount').value);
+        const jurisdiction_id = item.querySelector('.jurisdiction-id').value || null;
+        const notes = item.querySelector('.item-notes').value || null;
+        if (tax_type_id && amount) {
+          tax_items.push({ tax_type_id: parseInt(tax_type_id), amount, jurisdiction_id: jurisdiction_id ? parseInt(jurisdiction_id) : null, notes });
+        }
+      });
+
+      if (tax_items.length === 0) {
+        messageEl.textContent = 'Add at least one tax item.';
+        messageEl.className = 'message error';
+        return;
+      }
+
+      const payload = {
+        date: document.getElementById('date').value,
+        description: document.getElementById('description').value,
+        source_type: document.getElementById('source_type').value,
+        tax_items
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/transactions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          messageEl.textContent = 'Transaction saved! Redirecting to dashboard…';
+          messageEl.className = 'message success';
+          setTimeout(() => window.location.href = 'dashboard.html', 1200);
+        } else {
+          messageEl.textContent = result.error || 'Failed to save';
+          messageEl.className = 'message error';
+        }
+      } catch (err) {
+        messageEl.textContent = 'Network error. Please try again.';
+        messageEl.className = 'message error';
+      }
+    });
+
+    document.getElementById('logoutLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('ftp_token');
+      localStorage.removeItem('ftp_firstName');
+      window.location.href = 'index.html';
+    });
+
+    loadTaxTypes().then(() => addTaxItem());
+  </script>
+
+<footer style="margin-top: 3rem; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; color: #333;">
+  <div style="width:100%; background:#facc15; color:#000; font-weight:bold; text-align:center; letter-spacing:3px; padding:0.6rem 0; font-size:1.4rem; border-top:5px solid #000; border-bottom:5px solid #000; overflow:hidden; white-space:nowrap;">
+    UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION
+  </div>
+  <div style="padding: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+    <img src="tax-tracker.png" alt="Tax Tracker" style="height: 320px; width: auto;">
+    <div style="font-size: 1.8rem; line-height: 1.4;">
+      <strong>Site under construction</strong><br>
+      Tracking begins January 1, 2027
+    </div>
+  </div>
+</footer>
+</body>
+</html>

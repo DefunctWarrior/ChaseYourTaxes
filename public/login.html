@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Follow the Pennies</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .login-container {
+      max-width: 440px;
+      margin: 2rem auto 4rem;
+      padding: 0 1.5rem;
+    }
+    .login-card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .login-card h1 {
+      color: var(--navy);
+      margin-bottom: 0.5rem;
+      font-size: 1.75rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: var(--navy);
+      font-size: 0.9rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border: 1px solid var(--gray);
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--copper);
+    }
+    .message {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+    .message.error { color: #c0392b; }
+    .links {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .links a {
+      display: block;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="landing-header">
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      Follow the Pennies
+    </div>
+    <nav class="nav-links">
+      <a href="/">Home</a>
+      <a href="/register.html">Register</a>
+    </nav>
+  </header>
+
+  <div class="login-container">
+    <div class="login-card">
+      <h1>Welcome back</h1>
+      <p style="color: var(--muted); margin-bottom: 1.5rem;">Log in to see where your tax dollars went.</p>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">Username or email</label>
+          <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn" style="width: 100%;">Log in</button>
+        <div id="message" class="message"></div>
+      </form>
+
+      <div class="links">
+        <a href="/forgot-password.html">Forgot your password?</a>
+        <a href="/register.html">Don’t have an account? Register</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const messageEl = document.getElementById('message');
+      messageEl.textContent = '';
+      messageEl.className = 'message';
+
+      const data = {
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+      };
+
+      try {
+        const API_BASE = 'https://chaseyourtaxes.onrender.com';
+        const res = await fetch(`${API_BASE}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+          localStorage.setItem('ftp_token', result.token);
+          localStorage.setItem('ftp_firstName', result.firstName);
+          window.location.href = '/dashboard.html';
+        } else {
+          messageEl.textContent = result.error || 'Login failed';
+          messageEl.classList.add('error');
+        }
+      } catch (err) {
+        messageEl.textContent = 'Network error. Please try again.';
+        messageEl.classList.add('error');
+      }
+    });
+  </script>
+
+<footer style="margin-top: 3rem; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; color: #333;">
+  <div style="width:100%; background:#facc15; color:#000; font-weight:bold; text-align:center; letter-spacing:3px; padding:0.6rem 0; font-size:1.4rem; border-top:5px solid #000; border-bottom:5px solid #000; overflow:hidden; white-space:nowrap;">
+    UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION
+  </div>
+  <div style="padding: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+    <img src="tax-tracker.png" alt="Tax Tracker" style="height: 320px; width: auto;">
+    <div style="font-size: 1.8rem; line-height: 1.4;">
+      <strong>Site under construction</strong><br>
+      Tracking begins January 1, 2027
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

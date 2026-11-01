@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Follow the Pennies</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .loading { text-align: center; padding: 3rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">P</div>
+        Follow the Pennies
+      </div>
+      <nav>
+        <a href="index.html">🏠 Home</a>
+        <a href="dashboard.html" class="active">📊 Dashboard</a>
+        <a href="allocation.html">📈 Where It Went</a>
+        <a href="log-tax.html">📋 Log a Tax</a>
+        <a href="#" id="logoutLink" style="margin-top: 1rem; color: #c17a3a;">🚪 Log out</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div id="content">
+        <div class="loading">Loading your dashboard…</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = 'https://chaseyourtaxes.onrender.com';
+
+    async function loadDashboard() {
+      const content = document.getElementById('content');
+      try {
+        const token = localStorage.getItem('ftp_token');
+        if (!token) {
+          content.innerHTML = `
+            <div class="welcome">
+              <h1>Please log in</h1>
+              <p style="color: var(--muted);">You need to be logged in to see your tax overview.</p>
+              <a href="login.html" class="btn" style="display: inline-block; margin-top: 1rem;">Log in</a>
+            </div>`;
+          return;
+        }
+
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        // Get current user
+        const meRes = await fetch(`${API_BASE}/api/me`, { headers });
+        if (!meRes.ok) {
+          content.innerHTML = `
+            <div class="welcome">
+              <h1>Please log in</h1>
+              <p style="color: var(--muted);">You need to be logged in to see your tax overview.</p>
+              <a href="login.html" class="btn" style="display: inline-block; margin-top: 1rem;">Log in</a>
+            </div>`;
+          return;
+        }
+        const user = await meRes.json();
+
+        // Get summary
+        const sumRes = await fetch(`${API_BASE}/api/summary`, { headers });
+        const summary = sumRes.ok ? await sumRes.json() : { total: 0, federal: 0, fica: 0, state: 0, local: 0, recent: [] };
+
+        const total = Number(summary.total) || 0;
+        const federal = Number(summary.federal) || 0;
+        const fica = Number(summary.fica) || 0;
+        const stateAmt = Number(summary.state) || 0;
+        const cityAmt = Number(summary.city) || 0;
+        const countyAmt = Number(summary.county) || 0;
+
+        const pct = (n) => total > 0 ? Math.round((n / total) * 100) : 0;
+
+        // Dynamic labels from user's home location
+        const stateLabel = user.state ? `${user.state} State` : 'State';
+        const cityLabel = user.city ? `${user.city} City` : 'City';
+        const countyLabel = user.county ? `${user.county} County` : 'County';
+        const localEmoji = user.state === 'FL' ? '🌴' : '📍';
+
+        content.innerHTML = `
+          <div class="welcome">
+            <h1>Welcome back, ${user.first_name}</h1>
+            <p style="color: var(--muted);">Your taxes paid year-to-date${user.city ? ` in ${user.city}${user.state ? ', ' + user.state : ''}` : ''}.</p>
+          </div>
+          <div class="total-card">
+            <div>
+              <div style="color: var(--muted); font-size: 0.85rem; letter-spacing: 0.05em;">TAXES PAID YTD</div>
+              <div class="total-amount">$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div style="color: #28a745; font-size: 0.9rem;">Every cent logged individually</div>
+            </div>
+            <div style="width: 64px; height: 64px; background: #FDF6EF; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">📄</div>
+          </div>
+          <div class="breakdown-grid">
+            <div class="breakdown-card">
+              <h3>🏛️ Federal Income</h3>
+              <div class="amount">$${federal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${pct(federal)}%;"></div></div>
+            </div>
+            <div class="breakdown-card">
+              <h3>🛡️ FICA</h3>
+              <div class="amount">$${fica.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${pct(fica)}%; background: #4a90a4;"></div></div>
+            </div>
+            <div class="breakdown-card">
+              <h3>${localEmoji} ${stateLabel}</h3>
+              <div class="amount">$${stateAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${pct(stateAmt)}%;"></div></div>
+            </div>
+            <div class="breakdown-card">
+              <h3>🏙️ ${cityLabel}</h3>
+              <div class="amount">$${cityAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${pct(cityAmt)}%; background: #6b9e78;"></div></div>
+            </div>
+            <div class="breakdown-card">
+              <h3>🗺️ ${countyLabel}</h3>
+              <div class="amount">$${countyAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${pct(countyAmt)}%; background: var(--navy);"></div></div>
+            </div>
+          </div>
+          <div class="lower-grid">
+            <div class="table-card">
+              <h3 style="margin-bottom: 1rem;">RECENT TRANSACTIONS</h3>
+              ${summary.recent && summary.recent.length ? `
+                <table>
+                  <thead>
+                    <tr><th>DATE</th><th>DESCRIPTION</th><th>CATEGORY</th><th>AMOUNT</th></tr>
+                  </thead>
+                  <tbody>
+                    ${summary.recent.map(r => `
+                      <tr>
+                        <td>${new Date(r.date).toLocaleDateString()}</td>
+                        <td>${r.description || ''}</td>
+                        <td>${r.category || ''}</td>
+                        <td>$${Number(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              ` : '<p style="color: var(--muted);">No transactions logged yet. Start by logging a tax.</p>'}
+            </div>
+            <div class="chart-card">
+              <h3 style="margin-bottom: 1rem;">WHERE IT WENT</h3>
+              <div style="text-align: center; margin-bottom: 1rem;">
+                <div style="width: 140px; height: 140px; border-radius: 50%; background: conic-gradient(#C17A3A 0% ${pct(federal)}%, #0F2C4C ${pct(federal)}% ${pct(federal)+pct(fica)}%, #4a90a4 ${pct(federal)+pct(fica)}% ${pct(federal)+pct(fica)+pct(stateAmt)}%, #6b9e78 ${pct(federal)+pct(fica)+pct(stateAmt)}% ${pct(federal)+pct(fica)+pct(stateAmt)+pct(cityAmt)}%, var(--navy) ${pct(federal)+pct(fica)+pct(stateAmt)+pct(cityAmt)}% 100%); margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                  <div style="width: 70px; height: 70px; background: white; border-radius: 50%;"></div>
+                </div>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--muted); text-align: center;">Based on your logged taxes.</p>
+              <a href="allocation.html" class="btn" style="display: block; text-align: center; margin-top: 1rem;">View Full Allocation</a>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        content.innerHTML = '<div class="welcome"><h1>Error loading dashboard</h1><p>Please try refreshing the page.</p></div>';
+      }
+    }
+
+    loadDashboard();
+
+    // Logout
+    document.getElementById('logoutLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('ftp_token');
+      localStorage.removeItem('ftp_firstName');
+      window.location.href = 'index.html';
+    });
+  </script>
+
+<footer style="margin-top: 3rem; background: #f8f9fa; border-top: 1px solid #e9ecef; text-align: center; color: #333;">
+  <div style="width:100%; background:#facc15; color:#000; font-weight:bold; text-align:center; letter-spacing:3px; padding:0.6rem 0; font-size:1.4rem; border-top:5px solid #000; border-bottom:5px solid #000; overflow:hidden; white-space:nowrap;">
+    UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION &nbsp;&nbsp;&nbsp;&nbsp; UNDER CONSTRUCTION
+  </div>
+  <div style="padding: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+    <img src="tax-tracker.png" alt="Tax Tracker" style="height: 320px; width: auto;">
+    <div style="font-size: 1.8rem; line-height: 1.4;">
+      <strong>Site under construction</strong><br>
+      Tracking begins January 1, 2027
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
